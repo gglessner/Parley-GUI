@@ -304,7 +304,7 @@ class Ui_TabContent:
         self.StatusTextBox = QPlainTextEdit(self.frame_4)
         self.StatusTextBox.setReadOnly(True)
         # Set fixed-width font for StatusTextBox
-        status_font = QFont("Courier New", 10)
+        status_font = QFont("Courier New", 16)
         status_font.setFixedPitch(True)
         self.StatusTextBox.setFont(status_font)
         self.verticalLayout.addWidget(self.StatusTextBox)
