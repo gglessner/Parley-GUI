@@ -293,7 +293,7 @@ class Ui_TabContent:
         self.gridLayout.setColumnStretch(0, 1)
         self.gridLayout.setColumnStretch(1, 1)
 
-        self.verticalLayout_3.addWidget(self.frame_3)
+        self.verticalLayout_3.addWidget(self.frame_3, stretch=1)
 
         # Status frame at the bottom
         self.frame_4 = QFrame(widget)
@@ -309,7 +309,7 @@ class Ui_TabContent:
         self.StatusTextBox.setFont(status_font)
         self.verticalLayout.addWidget(self.StatusTextBox)
 
-        self.verticalLayout_3.addWidget(self.frame_4)
+        self.verticalLayout_3.addWidget(self.frame_4, stretch=2)
 
         # Adjust spacing
         self.gridLayout.setVerticalSpacing(0)
