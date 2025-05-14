@@ -30,7 +30,7 @@ from contextlib import redirect_stdout
 import datetime
 
 # Define the version number at the top
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 # Define the tab label for the tab widget
 TAB_LABEL = f"Parley v{VERSION}"
