@@ -1,159 +1,178 @@
-# Parley Module
+# Parley - TCP/TLS Application Proxy
 
-The `Parley` module is a component of the **HACKtiveMQ Suite** and **ningu framework**, designed to act as a TCP/SSL proxy for intercepting and manipulating network traffic. It provides a graphical interface to configure proxy settings, load client and server certificates, and apply pluggable modules for processing network data.
+**Version:** 1.2.0  
+**Author:** Garland Glessner  
+**License:** GNU General Public License v3.0  
+**Part of:** HACKtiveMQ Suite
+
+---
 
 ## Overview
 
-The `Parley` module enables users to:
-- Set up a proxy server to relay traffic between a local endpoint (client-facing) and a remote endpoint (server-facing).
-- Toggle TCP or SSL for both local and remote connections, with support for loading server and client certificates.
-- Load and toggle pluggable client and server modules to process network traffic (e.g., display data in HEX, UTF-8, or modify HTTP headers).
-- Log all proxy activity, including connection details and module outputs, to a status window and connection-specific log files in `modules/Parley_logs/<date>/`.
-- Manage modules by enabling or disabling them via a GUI, moving module files between `enabled` and `disabled` directories.
+**Parley** is a multithreaded TCP/TLS application proxy module for the Ningu framework. It allows you to intercept, inspect, decode, and modify network traffic between a client and server in real-time.
 
-The module dynamically loads Python modules from `modules/Parley_modules_client/enabled` and `modules/Parley_modules_server/enabled`, which are created automatically if they do not exist.
+Designed for penetration testing and security research, Parley supports:
+- Plain TCP and TLS connections (both client and server side)
+- Modular traffic processing pipelines
+- On-the-fly data modification
+- Credential extraction from multiple protocols
+- Connection logging with per-session log files
 
-## Requirements
+---
 
-### Software
-- **Python**: Version 3.8 or later recommended.
-- **Operating System**: Compatible with Windows, Linux, and macOS.
+## Features
 
-### Python Dependencies
-The following Python packages are required, as specified in `requirements.txt`:
-PySide6>=6.0.0
+- **Bidirectional Proxy**: Intercept traffic in both directions (client-to-server and server-to-client)
+- **TLS Support**: Optional SSL/TLS on local (client-facing) and remote (server-facing) connections
+- **Certificate Loading**: Load custom certificates for client and server TLS
+- **Skip TLS Verification**: Bypass certificate validation for self-signed or invalid certs
+- **Modular Processing**: Enable/disable traffic processing modules by clicking in the UI
+- **Per-Connection Logging**: Automatic logging to dated directories with connection-specific files
+- **Multithreaded**: Each client connection handled in its own thread
 
-## Installation
+---
 
-1. **Obtain the Module**:
-   - The `Parley` module is part of the HACKtiveMQ Suite. Clone or download the suite repository, or extract the `3_Parley.py` file and its dependencies.
+## Directory Structure
 
-2. **Install Python Dependencies**:
-   - Create a virtual environment (optional but recommended):
-     ```bash
-     python -m venv venv
-     source venv/bin/activate  # On Linux/macOS
-     venv\Scripts\activate     # On Windows
-     ```
-   - Install the required packages:
-     ```bash
-     pip install -r requirements.txt
-     ```
-   - Alternatively, install directly:
-     ```bash
-     pip install PySide6>=6.0.0
-     ```
+```
+modules/
+    3_Parley.py                    # Main Parley module
+    README.md                      # This file
+    Parley_module_libs/            # Shared libraries for sub-modules
+        lib3270.py                 # EBCDIC/3270 terminal support
+        lib8583.py                 # ISO 8583 payment message parsing
+        lib_fix.py                 # FIX financial protocol parsing
+        lib_http_basic.py          # HTTP Basic Auth decoding
+        lib_jwt.py                 # JWT token decoding
+        lib_ldap_bind.py           # LDAP Simple Bind decoding
+        lib_smtp_auth.py           # SMTP/IMAP AUTH decoding
+        log_utils.py               # Logging utilities
+        solace_auth.py             # Solace message broker auth decoding
+    Parley_modules_client/         # Client-to-server traffic modules
+        enabled/                   # Active modules
+        disabled/                  # Inactive modules
+    Parley_modules_server/         # Server-to-client traffic modules
+        enabled/                   # Active modules
+        disabled/                  # Inactive modules
+    Parley_logs/                   # Connection logs (auto-created)
+        MM-DD-YYYY/                # Date-based subdirectories
+```
 
-3. **Set Up Module Directories**:
-   - Ensure the following directories exist (created automatically if missing):
-     - `modules/Parley_modules_client/enabled`: For enabled client modules.
-     - `modules/Parley_modules_client/disabled`: For disabled client modules.
-     - `modules/Parley_modules_server/enabled`: For enabled server modules.
-     - `modules/Parley_modules_server/disabled`: For disabled server modules.
-     - `modules/Parley_module_libs`: For shared library modules (e.g., `lib3270.py`, `lib8583.py`).
-   - Place client and server module files (e.g., `Display_Client_HEX.py`, `Display_Server_Python.py`) in the appropriate `enabled` or `disabled` directories.
-   - Place shared library modules in `modules/Parley_module_libs`.
-
-4. **Prepare Certificates** (if using SSL):
-   - Obtain server and client certificates (`.pem` or `.crt` files) if enabling SSL for local or remote connections.
-   - Certificates can be loaded via the GUI during configuration.
+---
 
 ## Usage
 
-1. **Launch the Module**:
-   - Run the `Parley` module via the HACKtiveMQ Suite or the ningu framework.
+1. Launch Ningu: `python ningu-v1.0.0.py`
+2. Select the **Parley** tab
+3. Configure connection settings:
+   - **Local IP/Port**: Where Parley listens for client connections
+   - **Remote IP/Port**: The target server to proxy to
+   - **TCP/SSL buttons**: Toggle TLS for each side
+   - **Verify/No Verify**: Toggle TLS certificate validation (when using SSL)
+   - **Load Cert buttons**: Load certificates for TLS connections
+4. Click modules in the lists to enable/disable them
+5. Click **Start** to begin proxying
 
-2. **Configure Proxy Settings**:
-   - **Local IP/Port**: Enter the IP address (e.g., `127.0.0.1`) and port (e.g., `8080`) for the proxy to listen on.
-   - **Remote IP/Port**: Enter the target server’s IP address and port (e.g., `80` for HTTP).
-   - **Local TLS**: Toggle the `Local TLS` button to enable SSL (`SSL`) or use TCP (`TCP`) for client connections. Load a server certificate if using SSL.
-   - **Remote TLS**: Toggle the `Remote TLS` button to enable SSL (`SSL`) or use TCP (`TCP`) for server connections. Load a client certificate if using SSL.
-   - **Certificates**:
-     - Click `Load Server Cert` to select a server certificate (`.pem` or `.crt`) for local SSL.
-     - Click `Load Client Cert` to select a client certificate for remote SSL.
-     - Click `Clear` to remove certificate paths.
+---
 
-3. **Manage Modules**:
-   - **Client Modules**: View available client modules in the `Client Modules` list. Click a module to toggle it between `enabled` and `disabled`, moving its `.py` file between `modules/Parley_modules_client/enabled` and `modules/Parley_modules_client/disabled`.
-   - **Server Modules**: View available server modules in the `Server Modules` list. Click a module to toggle its status, moving its `.py` file between `modules/Parley_modules_server/enabled` and `modules/Parley_modules_server/disabled`.
-   - Enabled modules are bolded in the lists and loaded automatically when starting the proxy.
+## Sub-Module Development
 
-4. **Start/Stop Proxy**:
-   - Click the `Start` button to launch the proxy, which listens on the specified local IP/port and forwards traffic to the remote IP/port.
-   - The `Status` text box logs events (e.g., `Started proxy: 127.0.0.1:8080 -> example.com:80`, `New server socket thread started for 127.0.0.1:12345`).
-   - Connection-specific logs are saved to `modules/Parley_logs/<date>/<src_ip>-<src_port>-<dst_ip>-<dst_port>.log`.
-   - Click `Stop` to halt the proxy and clean up resources.
+Each sub-module must define:
 
-5. **Monitor and Debug**:
-   - The `Status` text box displays real-time logs, including module loading, connection details, and errors.
-   - Check log files in `modules/Parley_logs/<date>/` for detailed connection-specific logs.
+```python
+module_description = "Brief description of what this module does"
 
-## Directory Structure
-```
-HACKtiveMQ_Suite/
-├── modules/
-│   ├── Parley_module_libs/         # Shared library modules
-│   │   ├── lib3270.py
-│   │   ├── lib8583.py
-│   │   ├── log_utils.py
-│   │   ├── solace_auth.py
-│   │   └── ...
-│   ├── Parley_modules_client/      # Client modules
-│   │   ├── enabled/
-│   │   │   ├── Display_Client_Python.py
-│   │   │   └── ...
-│   │   ├── disabled/
-│   │   │   ├── Display_Client_HEX.py
-│   │   │   ├── Display_Client_UTF8.py
-│   │   │   └── ...
-│   ├── Parley_modules_server/      # Server modules
-│   │   ├── enabled/
-│   │   │   ├── Display_Server_Python.py
-│   │   │   └── ...
-│   │   ├── disabled/
-│   │   │   ├── Display_Server_HEX.py
-│   │   │   ├── Display_Server_UTF8.py
-│   │   │   └── ...
-│   ├── Parley_logs/                # Log files (created automatically)
-│   │   ├── <MM-DD-YYYY>/
-│   │   │   ├── <src_ip>-<src_port>-<dst_ip>-<dst_port>.log
-│   │   │   └── ...
-└── 3_Parley.py                    # Parley module
+def module_function(message_num, source_ip, source_port, dest_ip, dest_port, message_data):
+    """
+    Process a message passing through the proxy.
+    
+    Args:
+        message_num: Sequential message number for this connection
+        source_ip: Source IP address
+        source_port: Source port number
+        dest_ip: Destination IP address
+        dest_port: Destination port number
+        message_data: The raw message bytes (bytearray)
+    
+    Returns:
+        The message data to forward (can be modified)
+    """
+    # Process/display/modify message_data
+    return message_data
 ```
 
-## Limitations
-- **Module Compatibility**: Modules must have a `module_function` that processes data and a `module_description` attribute, as expected by the `Parley` module.
-- **SSL Certificates**: SSL connections require valid certificates. Missing or invalid certificates may cause connection failures.
-- **Port Conflicts**: Ensure the local port is not in use by another application to avoid binding errors.
-- **Thread Safety**: Modules must be thread-safe, as they are called in separate client threads.
+---
 
-## Troubleshooting
-- **Proxy Fails to Start**:
-  - Verify that the local and remote IP/port inputs are valid (e.g., numeric port, non-empty remote IP).
-  - Check for port conflicts (`Error starting proxy: Address already in use`).
-  - Ensure certificates are valid if using SSL (`Error in connection: [SSL: CERTIFICATE_VERIFY_FAILED]`).
-- **Modules Not Loaded**:
-  - Confirm that module files are in `modules/Parley_modules_client/enabled` or `modules/Parley_modules_server/enabled`.
-  - Check the `Status` text box for errors (e.g., `Error loading module: ...`).
-- **No Logs in Files**:
-  - Ensure the `modules/Parley_logs/<date>/` directory is writable.
-  - Check for errors in the `Status` text box (e.g., `Error writing to log file ...`).
-- **Connection Issues**:
-  - Verify remote server availability (`Error: Connection refused`).
-  - Check TLS settings and certificate paths for SSL connections.
+## Included Sub-Modules
 
-## Contributing
-Contributions to the `Parley` module are welcome! To contribute:
-1. Fork the HACKtiveMQ Suite repository.
-2. Create a feature branch (`git checkout -b feature/your-feature`).
-3. Commit your changes (`git commit -m "Add your feature"`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a pull request.
+### Display Modules (Read-Only Inspection)
 
-Please test changes on your operating system (Windows, Linux, or macOS) and ensure compatibility with the module’s functionality and module interface.
+| Module | Description |
+|--------|-------------|
+| `Display_Client_Python` / `Display_Server_Python` | Raw Python bytes representation |
+| `Display_Client_HEX` / `Display_Server_HEX` | Hex dump with ASCII sidebar |
+| `Display_Client_UTF8` / `Display_Server_UTF8` | UTF-8 string display |
+| `Display_Client_EBCDIC` / `Display_Server_EBCDIC` | EBCDIC to ASCII (mainframe) |
+| `Display_Client_ISO8583` / `Display_Server_ISO8583` | ISO 8583 payment messages |
+| `Display_Client_FIX` / `Display_Server_FIX` | FIX financial protocol |
+| `Display_Client_JWT` / `Display_Server_JWT` | JWT token decode with expiration |
 
-## License
-This module is licensed under the GNU General Public License v3.0. See the [LICENSE](https://www.gnu.org/licenses/) file for details.
+### Credential Capture Modules
+
+| Module | Protocol | What it Captures |
+|--------|----------|------------------|
+| `Creds_Client_HTTP_Basic` | HTTP | Basic Auth and Proxy-Auth headers |
+| `Creds_Client_SMTP_Auth` | SMTP/IMAP | AUTH PLAIN and AUTH LOGIN |
+| `Creds_Client_LDAP_Bind` | LDAP | Simple Bind DN and password |
+| `Creds_Client_Solace_Auth` | Solace | Message broker credentials |
+
+### Modification Modules
+
+| Module | Description |
+|--------|-------------|
+| `0-Modify_Client_HTTP_Headers` | Example HTTP header rewriting |
+| `0-Modify_URL` | Example URL modification |
+
+---
+
+## Libraries
+
+| Library | Description |
+|---------|-------------|
+| `lib3270.py` | EBCDIC to ASCII conversion table for IBM 3270 terminals |
+| `lib8583.py` | ISO 8583 payment message parser |
+| `lib_fix.py` | FIX protocol decoder with 600+ tag definitions |
+| `lib_http_basic.py` | HTTP Basic/Proxy Authorization decoder |
+| `lib_jwt.py` | JWT token parser with claim descriptions and expiry check |
+| `lib_ldap_bind.py` | LDAP ASN.1/BER parser for Simple Bind requests |
+| `lib_smtp_auth.py` | SMTP/IMAP AUTH PLAIN and LOGIN decoder |
+| `log_utils.py` | Connection-specific logging utilities |
+| `solace_auth.py` | Solace SMF authentication decoder |
+
+---
+
+## Changelog
+
+### v1.2.0
+- Added TLS certificate verification toggle ("Verify" / "No Verify" button)
+- Added FIX protocol decoder (Display_Client_FIX, Display_Server_FIX)
+- Added JWT token decoder (Display_Client_JWT, Display_Server_JWT)
+- Added credential capture modules:
+  - HTTP Basic Auth (Creds_Client_HTTP_Basic)
+  - SMTP/IMAP AUTH (Creds_Client_SMTP_Auth)
+  - LDAP Simple Bind (Creds_Client_LDAP_Bind)
+- Renamed Solace_Auth_Decode to Creds_Client_Solace_Auth
+- Code cleanup and dead code removal
+
+### v1.1.2
+- Initial public release
+- Bidirectional TCP/TLS proxy
+- Modular client and server traffic processing
+- Per-connection logging
+
+---
 
 ## Contact
-For issues, questions, or suggestions, contact Garland Glessner at gglesner@gmail.com.
+
+Garland Glessner  
+Email: gglessner@gmail.com

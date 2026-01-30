@@ -26,11 +26,10 @@ import sys
 import threading
 import select
 import io
-from contextlib import redirect_stdout
 import datetime
 
 # Define the version number at the top
-VERSION = "1.1.2"
+VERSION = "1.2.0"
 
 # Define the tab label for the tab widget
 TAB_LABEL = f"Parley v{VERSION}"
@@ -207,6 +206,13 @@ class Ui_TabContent:
         self.RemoteTLSButton.setCheckable(True)
         self.horizontalLayout_6.addWidget(self.RemoteTLSButton)
 
+        self.SkipTLSValidation = QPushButton(self.frame_12)
+        self.SkipTLSValidation.setText("Verify")
+        self.SkipTLSValidation.setCheckable(True)
+        self.SkipTLSValidation.setChecked(True)
+        self.SkipTLSValidation.setEnabled(False)
+        self.horizontalLayout_6.addWidget(self.SkipTLSValidation)
+
         self.gridLayout_2.addWidget(self.frame_12, 2, 0, 1, 1)
 
         # Client certificate input frame
@@ -361,14 +367,11 @@ class TabContent(QWidget):
 
         # Initialize logging
         log_dir = os.path.join('modules', 'Parley_logs')
-        # --- START MODIFIED SECTION ---
-        # Create the Parley_logs directory if it doesn't exist
         try:
             os.makedirs(log_dir, exist_ok=True)
             self.ui.StatusTextBox.appendPlainText(f"Ensured directory exists: {log_dir}")
         except Exception as e:
             self.ui.StatusTextBox.appendPlainText(f"Error creating directory {log_dir}: {e}")
-        # --- END MODIFIED SECTION ---
         self.print_redirector = PrintRedirector(self.ui.StatusTextBox, log_dir)
         sys.stdout = self.print_redirector
 
@@ -421,6 +424,7 @@ class TabContent(QWidget):
         self.ui.ClientCertButton.clicked.connect(self.load_client_cert)
         self.ui.ServerCertClearButton.clicked.connect(self.clear_server_cert)
         self.ui.ClientCertClearButton.clicked.connect(self.clear_client_cert)
+        self.ui.SkipTLSValidation.clicked.connect(self.toggle_tls_validation)
         self.ui.ClientModulesList.itemClicked.connect(self.toggle_client_module)
         self.ui.ServerModulesList.itemClicked.connect(self.toggle_server_module)
         self.ui.StartStopButton.clicked.connect(self.toggle_proxy)
@@ -446,7 +450,17 @@ class TabContent(QWidget):
         self.ui.ClientCertButton.setEnabled(is_ssl)
         self.ui.ClientCertPath.setEnabled(is_ssl)
         self.ui.ClientCertClearButton.setEnabled(is_ssl)
+        self.ui.SkipTLSValidation.setEnabled(is_ssl)
         self.print_redirector.write_general(f"Remote connection set to {'SSL' if is_ssl else 'TCP'}")
+
+    def toggle_tls_validation(self):
+        """Toggle TLS validation button between Verify and No Verify."""
+        if self.ui.SkipTLSValidation.isChecked():
+            self.ui.SkipTLSValidation.setText("Verify")
+            self.print_redirector.write_general("TLS certificate validation enabled")
+        else:
+            self.ui.SkipTLSValidation.setText("No Verify")
+            self.print_redirector.write_general("TLS certificate validation disabled")
 
     def load_server_cert(self):
         """Load server certificate and display path."""
@@ -588,7 +602,7 @@ class TabContent(QWidget):
         self.load_client_modules()
         self.load_server_modules()
 
-    def handle_client(self, client_socket, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile):
+    def handle_client(self, client_socket, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile, verify_tls=True):
         """Handle client connection in a separate thread."""
         forward_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_sockets.append(client_socket)
@@ -602,6 +616,9 @@ class TabContent(QWidget):
 
             if use_tls_server:
                 context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                if not verify_tls:
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
                 if client_certfile:
                     context.load_cert_chain(certfile=client_certfile)
                 forward_socket = context.wrap_socket(forward_socket, server_hostname=target_host)
@@ -661,7 +678,7 @@ class TabContent(QWidget):
                 except:
                     pass
 
-    def start_proxy(self, listen_host, listen_port, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile):
+    def start_proxy(self, listen_host, listen_port, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile, verify_tls=True):
         """Start the proxy server in a loop."""
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -675,7 +692,7 @@ class TabContent(QWidget):
                     client_socket, addr = self.server_socket.accept()
                     client_ip, client_port = client_socket.getpeername()
                     self.print_redirector.write_general(f"[+] New server socket thread started for {client_ip}:{client_port}")
-                    client_thread = threading.Thread(target=self.handle_client, args=(client_socket, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile))
+                    client_thread = threading.Thread(target=self.handle_client, args=(client_socket, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile, verify_tls))
                     client_thread.daemon = True  # Make client threads daemon
                     client_thread.start()
                     self.client_threads.append(client_thread)
@@ -749,6 +766,7 @@ class TabContent(QWidget):
                 target_port = int(self.ui.RemotePortLine.text().strip())
                 use_tls_client = self.ui.LocalTLSButton.isChecked()
                 use_tls_server = self.ui.RemoteTLSButton.isChecked()
+                verify_tls = self.ui.SkipTLSValidation.isChecked()
                 certfile = self.ui.ServerCertPath.text().strip() or None
                 client_certfile = self.ui.ClientCertPath.text().strip() or None
 
@@ -759,7 +777,7 @@ class TabContent(QWidget):
                 self.load_modules()
                 self.proxy_running = True
                 self.ui.StartStopButton.setText("Stop")
-                self.proxy_thread = threading.Thread(target=self.start_proxy, args=(listen_host, listen_port, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile))
+                self.proxy_thread = threading.Thread(target=self.start_proxy, args=(listen_host, listen_port, target_host, target_port, use_tls_client, use_tls_server, certfile, client_certfile, verify_tls))
                 self.proxy_thread.daemon = True  # Make proxy thread daemon
                 self.proxy_thread.start()
                 self.print_redirector.write_general(f"Started proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
